@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="..\SmartServe.Domain\SmartServe.Domain.csproj" />
+  </ItemGroup>
+</Project>

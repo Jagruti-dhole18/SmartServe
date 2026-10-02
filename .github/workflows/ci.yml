@@ -1,0 +1,53 @@
+name: SmartServe CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - run: dotnet restore SmartServe.sln
+      - run: dotnet build SmartServe.sln --configuration Release --no-restore
+      - run: dotnet test SmartServe.sln --configuration Release --no-build
+      - name: Reject known vulnerable NuGet packages
+        shell: bash
+        run: |
+          set -o pipefail
+          dotnet list SmartServe.sln package --vulnerable --include-transitive | tee nuget-vulnerabilities.txt
+          ! grep -q "has the following vulnerable packages" nuget-vulnerabilities.txt
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src/SmartServe.Client
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: src/SmartServe.Client/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
+      - run: npm audit --audit-level=high
+
+  secret-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Scan the checked-out tree for secrets
+        run: docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.30.0 detect --source=/repo --no-git --redact --verbose
+
